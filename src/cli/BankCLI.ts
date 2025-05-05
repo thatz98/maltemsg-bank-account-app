@@ -1,5 +1,5 @@
 import * as readline from 'readline';
-import { Transaction } from '../models/types';
+import { InterestRule, Transaction } from '../models/types';
 import { BankAccountService } from '../services/BankAccountService';
 
 export class BankCLI {
@@ -95,6 +95,21 @@ export class BankCLI {
                 this.showMainMenu(true);
                 return;
             }
+
+            try {
+                const [date, ruleId, rate] = input.trim().split(' ');
+
+                if (!this.validateInterestRuleInput(date, ruleId, rate)) {
+                    throw new Error('Invalid input format');
+                }
+
+                this.bankAccountService.addInterestRule(date, ruleId, parseFloat(rate));
+                this.displayInterestRules();
+                this.showMainMenu();
+            } catch (error: unknown) {
+                console.log(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                this.showInterestRuleMenu();
+            }
         });
     }
 
@@ -150,6 +165,43 @@ export class BankCLI {
         });
     }
 
+    private displayInterestRules(): void {
+        console.log('\nInterest rules:');
+
+        const rules = this.bankAccountService.getInterestRules();
+
+        const widths = {
+            date: 8,
+            ruleId: Math.max(6, ...rules.map((r: InterestRule) => r.ruleId.length)),
+            rate: 8
+        };
+
+        const header = [
+            'Date'.padEnd(widths.date),
+            'RuleId'.padEnd(widths.ruleId),
+            'Rate (%)'.padEnd(widths.rate)
+        ].join(' | ');
+
+        const separator = [
+            '-'.repeat(widths.date),
+            '-'.repeat(widths.ruleId),
+            '-'.repeat(widths.rate)
+        ].join('-|-');
+
+        console.log(`| ${header} |`);
+        console.log(`|-${separator}-|`);
+
+        rules.forEach((rule: InterestRule) => {
+            const row = [
+                rule.date,
+                rule.ruleId.padEnd(widths.ruleId),
+                rule.rate.toFixed(2).padStart(widths.rate)
+            ].join(' | ');
+
+            console.log(`| ${row} |`);
+        });
+    }
+
     private quit(): void {
         console.log('\nThank you for banking with AwesomeGIC Bank.');
         console.log('Have a nice day!');
@@ -165,5 +217,16 @@ export class BankCLI {
             ['D', 'W'].includes(type) &&
             amountRegex.test(amount) &&
             parseFloat(amount) > 0;
+    }
+
+    private validateInterestRuleInput(date: string, ruleId: string, rate: string): boolean {
+        const dateRegex = /^\d{8}$/;
+        const rateRegex = /^\d+(\.\d{1,2})?$/;
+
+        return dateRegex.test(date) &&
+            ruleId.length > 0 &&
+            rateRegex.test(rate) &&
+            parseFloat(rate) > 0 &&
+            parseFloat(rate) < 100;
     }
 } 

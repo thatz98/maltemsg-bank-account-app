@@ -18,4 +18,10 @@ export interface AccountStatement {
     accountId: string;
     transactions: Transaction[];
     balance: number;
-} 
+}
+
+export interface InterestRule {
+    date: string; // YYYYMMDD format
+    ruleId: string;
+    rate: number; // percentage
+}

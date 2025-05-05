@@ -1,8 +1,9 @@
-import { Account, AccountStatement, Transaction, TransactionType } from '../models/types';
+import { Account, AccountStatement, InterestRule, Transaction, TransactionType } from '../models/types';
 import { LoggingService } from './LoggingService';
 
 export class BankAccountService {
     private accounts: Map<string, Account> = new Map();
+    private interestRules: InterestRule[] = [];
     private logger: LoggingService;
 
     constructor() {
@@ -75,9 +76,30 @@ export class BankAccountService {
         };
     }
 
+    public addInterestRule(date: string, ruleId: string, rate: number): void {
+        this.logger.info(`Adding interest rule: ${date} ${ruleId} ${rate}%`);
+
+        if (rate <= 0 || rate >= 100) {
+            this.logger.error(`Interest rate must be between 0 and 100: ${rate}`);
+            throw new Error('Interest rate must be between 0 and 100');
+        }
+
+        // Remove any existing rule for the same date
+        this.interestRules = this.interestRules.filter(rule => rule.date !== date);
+
+        this.interestRules.push({ date, ruleId, rate });
+        this.interestRules.sort((a, b) => a.date.localeCompare(b.date));
+        this.logger.info(`Current interest rules: ${JSON.stringify(this.interestRules)}`);
+    }
+
+    public getInterestRules(): InterestRule[] {
+        return [...this.interestRules];
+    }
+
     private generateTransactionId(date: string, account: Account): string {
         const dayTransactions = account.transactions.filter(t => t.date === date);
         const sequenceNumber = (dayTransactions.length + 1).toString().padStart(2, '0');
         return `${date}-${sequenceNumber}`;
     }
+
 } 
