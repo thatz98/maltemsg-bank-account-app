@@ -24,8 +24,29 @@ A simple banking system built with TypeScript that handles operations on bank ac
 
 - Node.js (v14 or higher)
 - npm (v6 or higher)
+- Docker (optional, for containerized deployment)
 
 ## Installation
+
+### Using Docker (Recommended)
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/thatz98/maltemsg-bank-account-app.git
+   cd maltemsg-bank-account-app
+   ```
+
+2. Build the Docker image:
+   ```bash
+   docker build -t bank-account-app .
+   ```
+
+3. Run the container:
+   ```bash
+   docker run -it bank-account-app
+   ```
+
+### Manual Installation
 
 1. Clone the repository:
    ```bash
