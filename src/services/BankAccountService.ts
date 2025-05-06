@@ -39,7 +39,7 @@ export class BankAccountService {
         }
 
         let balance = 0;
-        let currentDate = new Date(
+        const currentDate = new Date(
             parseInt(firstTransaction.date.substring(0, 4)),
             parseInt(firstTransaction.date.substring(4, 6)) - 1,
             1
@@ -56,7 +56,7 @@ export class BankAccountService {
             const monthTransactions = sortedTransactions
                 .filter(t => t.date >= monthStartDate && t.date <= monthEndDate);
 
-            let openingBalance = balance;
+            const openingBalance = balance;
 
             // Process transactions for this month
             monthTransactions.forEach(t => {
@@ -150,7 +150,7 @@ export class BankAccountService {
         // Get the opening balance (end of previous day)
         const openingBalance = this.getMonthlyOpeningBalance(account, year, month);
 
-        let transactions = account.transactions
+        const transactions = account.transactions
             .filter(t => t.date >= startDate && t.date <= endDate)
             .sort((a, b) => a.date.localeCompare(b.date));
 
