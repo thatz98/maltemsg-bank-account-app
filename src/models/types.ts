@@ -10,14 +10,13 @@ export interface Transaction {
 
 export interface Account {
     id: string;
-    balance: number;
     transactions: Transaction[];
 }
 
 export interface AccountStatement {
     accountId: string;
     transactions: Transaction[];
-    balance: number;
+    openingBalance: number;
 }
 
 export interface InterestRule {
