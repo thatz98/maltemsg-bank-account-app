@@ -54,8 +54,6 @@ export class BankCLI {
         console.log('[Q] Quit');
     }
 
-
-
     private showTransactionMenu(): void {
         console.log('\nPlease enter transaction details in <Date in YYYYMMDD> <Account> <Type> <Amount> format (or enter blank to go back to main menu):');
 
@@ -277,79 +275,119 @@ export class BankCLI {
         this.rl.close();
     }
 
-    private validateFutureDate(date: Date): boolean {
+    private validateDate(date: string): { isValid: boolean; error: string | null } {
+        // Check format (YYYYMMDD)
+        if (!/^\d{8}$/.test(date)) {
+            return { isValid: false, error: 'Invalid date format. Use YYYYMMDD format.' };
+        }
+
+        const year = parseInt(date.substring(0, 4));
+        const month = parseInt(date.substring(4, 6));
+        const day = parseInt(date.substring(6, 8));
+
+        // Validate year range
+        if (year < 1900 || year > 2100) {
+            return { isValid: false, error: 'Year must be between 1900 and 2100.' };
+        }
+
+        // Validate month
+        if (month < 1 || month > 12) {
+            return { isValid: false, error: 'Month must be between 01 and 12.' };
+        }
+
+        // Validate day
+        const daysInMonth = new Date(year, month, 0).getDate();
+        if (day < 1 || day > daysInMonth) {
+            return { isValid: false, error: `Day must be between 01 and ${daysInMonth} for the given month.` };
+        }
+
+        // Check if date is in the future
+        const inputDate = new Date(year, month - 1, day);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        return date <= today;
+
+        if (inputDate > today) {
+            return { isValid: false, error: 'Date should not be in the future.' };
+        }
+
+        return { isValid: true, error: null };
     }
 
     private validateTransactionInput(date: string, account: string, type: string, amount: string): string | null {
-        const dateRegex = /^\d{8}$/;
-        const amountRegex = /^\d+(\.\d{1,2})?$/;
-
-        if (!dateRegex.test(date) ||
-            account.length === 0 ||
-            !['D', 'W'].includes(type) ||
-            !amountRegex.test(amount) ||
-            parseFloat(amount) <= 0) {
-            return 'Invalid input format';
+        // Validate date
+        const dateValidation = this.validateDate(date);
+        if (!dateValidation.isValid) {
+            return dateValidation.error;
         }
 
-        // Check if date is not in the future
-        const inputDate = new Date(
-            parseInt(date.substring(0, 4)),
-            parseInt(date.substring(4, 6)) - 1,
-            parseInt(date.substring(6, 8))
-        );
+        // Validate account
+        if (!account || account.length === 0) {
+            return 'Account ID is required.';
+        }
 
-        if (!this.validateFutureDate(inputDate)) {
-            return 'Date should not be in the future';
+        // Validate transaction type
+        if (!['D', 'W'].includes(type)) {
+            return 'Transaction type must be D (deposit) or W (withdrawal).';
+        }
+
+        // Validate amount
+        const amountRegex = /^\d+(\.\d{1,2})?$/;
+        if (!amountRegex.test(amount) || parseFloat(amount) <= 0) {
+            return 'Amount must be a positive number with up to 2 decimal places.';
         }
 
         return null;
     }
 
     private validateInterestRuleInput(date: string, ruleId: string, rate: string): string | null {
-        const dateRegex = /^\d{8}$/;
-        const rateRegex = /^\d+(\.\d{1,2})?$/;
-
-        if (!dateRegex.test(date) ||
-            ruleId.length === 0 ||
-            !rateRegex.test(rate) ||
-            parseFloat(rate) <= 0 ||
-            parseFloat(rate) >= 100) {
-            return 'Invalid input format';
+        // Validate date
+        const dateValidation = this.validateDate(date);
+        if (!dateValidation.isValid) {
+            return dateValidation.error;
         }
 
-        // Check if date is not in the future
-        const inputDate = new Date(
-            parseInt(date.substring(0, 4)),
-            parseInt(date.substring(4, 6)) - 1,
-            parseInt(date.substring(6, 8))
-        );
+        // Validate rule ID
+        if (!ruleId || ruleId.length === 0) {
+            return 'Rule ID is required.';
+        }
 
-        if (!this.validateFutureDate(inputDate)) {
-            return 'Date should not be in the future';
+        // Validate rate
+        const rateRegex = /^\d+(\.\d{1,2})?$/;
+        if (!rateRegex.test(rate)) {
+            return 'Rate must be a number with up to 2 decimal places.';
+        }
+
+        const rateValue = parseFloat(rate);
+        if (rateValue <= 0 || rateValue >= 100) {
+            return 'Rate must be between 0 and 100.';
         }
 
         return null;
     }
 
     private validatePrintStatementInput(account: string, year: number, month: number): string | null {
-        if (account.length === 0 ||
-            year < 1900 ||
-            year > 2100 ||
-            month < 1 ||
-            month > 12) {
-            return 'Invalid input format';
+        // Validate account
+        if (!account || account.length === 0) {
+            return 'Account ID is required.';
         }
 
-        // Check if the requested month is not in the future
-        const inputDate = new Date(year, month - 1, 1);
-        inputDate.setDate(1); // Set to first day of month for comparison
+        // Validate year
+        if (year < 1900 || year > 2100) {
+            return 'Year must be between 1900 and 2100.';
+        }
 
-        if (!this.validateFutureDate(inputDate)) {
-            return 'Date should not be in the future';
+        // Validate month
+        if (month < 1 || month > 12) {
+            return 'Month must be between 1 and 12.';
+        }
+
+        // Check if the requested month is in the future
+        const inputDate = new Date(year, month - 1, 1);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (inputDate > today) {
+            return 'Cannot generate statement for future months.';
         }
 
         return null;

@@ -37,6 +37,18 @@ describe('BankAccountService', () => {
             const transaction2 = bankAccountService.processTransaction('20230601', 'AC001', 'D', 50.00);
             expect(transaction2.transactionId).toBe('20230601-02');
         });
+
+        it('should throw error for zero amount', () => {
+            expect(() => {
+                bankAccountService.processTransaction('20230601', 'AC001', 'D', 0);
+            }).toThrow('Amount must be greater than 0');
+        });
+
+        it('should throw error for negative amount', () => {
+            expect(() => {
+                bankAccountService.processTransaction('20230601', 'AC001', 'D', -100);
+            }).toThrow('Amount must be greater than 0');
+        });
     });
 
     describe('getAccountStatement', () => {
@@ -63,9 +75,7 @@ describe('BankAccountService', () => {
             expect(statement.transactions.length).toBe(3);
             expect(statement.openingBalance).toBe(0);
         });
-    });
 
-    describe('interest calculation', () => {
         it('should calculate interest correctly for a month', () => {
             bankAccountService.addInterestRule('20230601', 'RULE01', 2.0);
             bankAccountService.processTransaction('20230601', 'AC001', 'D', 1000.00);
@@ -217,20 +227,6 @@ describe('BankAccountService', () => {
         });
     });
 
-    describe('transaction validation', () => {
-        it('should throw error for zero amount', () => {
-            expect(() => {
-                bankAccountService.processTransaction('20230601', 'AC001', 'D', 0);
-            }).toThrow('Amount must be greater than 0');
-        });
-
-        it('should throw error for negative amount', () => {
-            expect(() => {
-                bankAccountService.processTransaction('20230601', 'AC001', 'D', -100);
-            }).toThrow('Amount must be greater than 0');
-        });
-    });
-
     describe('addInterestRule', () => {
         it('should add a new interest rule', () => {
             bankAccountService.addInterestRule('20230601', 'RULE01', 2.0);
@@ -270,6 +266,133 @@ describe('BankAccountService', () => {
             expect(() => {
                 bankAccountService.addInterestRule('20230601', 'RULE01', 100);
             }).toThrow('Interest rate must be between 0 and 100');
+        });
+    });
+
+    describe('getRecentTransactions', () => {
+        it('should return specified number of recent transactions', () => {
+            // Create multiple transactions
+            bankAccountService.processTransaction('20230601', 'AC001', 'D', 100.00);
+            bankAccountService.processTransaction('20230602', 'AC001', 'D', 200.00);
+            bankAccountService.processTransaction('20230603', 'AC001', 'D', 300.00);
+            bankAccountService.processTransaction('20230604', 'AC001', 'D', 400.00);
+            bankAccountService.processTransaction('20230605', 'AC001', 'D', 500.00);
+
+            // Get last 3 transactions
+            const statement = bankAccountService.getRecentTransactions('AC001', 3);
+            expect(statement.transactions.length).toBe(3);
+            expect(statement.transactions[0].amount).toBe(300.00);
+            expect(statement.transactions[1].amount).toBe(400.00);
+            expect(statement.transactions[2].amount).toBe(500.00);
+        });
+
+        it('should throw error for non-existent account', () => {
+            expect(() => {
+                bankAccountService.getRecentTransactions('NONEXISTENT');
+            }).toThrow('Account not found');
+        });
+    });
+
+    describe('getMonthlyStatement', () => {
+        it('should not include interest for current month', () => {
+            const currentDate = new Date();
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1;
+            const date = `${year}${month.toString().padStart(2, '0')}01`;
+
+            bankAccountService.addInterestRule(date, 'RULE01', 2.0);
+            bankAccountService.processTransaction(date, 'AC001', 'D', 1000.00);
+
+            const statement = bankAccountService.getMonthlyStatement('AC001', year, month);
+            const interestTransaction = statement.transactions.find(t => t.type === 'I');
+            expect(interestTransaction).toBeUndefined();
+        });
+
+        it('should throw error for non-existent account', () => {
+            expect(() => {
+                bankAccountService.getMonthlyStatement('NONEXISTENT', 2023, 13);
+            }).toThrow('Account not found');
+        });
+    });
+
+    describe('calculateInterest', () => {
+        it('should calculate interest based on end-of-day balances', () => {
+            bankAccountService.addInterestRule('20230601', 'RULE01', 2.0);
+            // Initial deposit
+            bankAccountService.processTransaction('20230601', 'AC001', 'D', 1000.00);
+            // Withdrawal on day 15
+            bankAccountService.processTransaction('20230615', 'AC001', 'W', 500.00);
+
+            const interest = bankAccountService.calculateInterest('AC001', 2023, 6, 0);
+            // For a 30-day month with 2% annual rate:
+            // First 14 days: 1000 * (2% / 365) * 14
+            // Last 16 days: 500 * (2% / 365) * 16
+            const expectedInterest = Math.round(((1000 * 0.02 / 365 * 14) + (500 * 0.02 / 365 * 16)) * 100) / 100;
+            expect(interest).toBe(expectedInterest);
+        });
+
+        it('should calculate interest correctly with multiple transactions on same day', () => {
+            bankAccountService.addInterestRule('20230601', 'RULE01', 2.0);
+            // Initial deposit
+            bankAccountService.processTransaction('20230601', 'AC001', 'D', 1000.00);
+            // Multiple transactions on day 15
+            bankAccountService.processTransaction('20230615', 'AC001', 'D', 500.00);
+            bankAccountService.processTransaction('20230615', 'AC001', 'W', 200.00);
+
+            const interest = bankAccountService.calculateInterest('AC001', 2023, 6, 0);
+            // First 14 days: 1000 * (2% / 365) * 14
+            // Last 16 days: 1300 * (2% / 365) * 16
+            const expectedInterest = Math.round(((1000 * 0.02 / 365 * 14) + (1300 * 0.02 / 365 * 16)) * 100) / 100;
+            expect(interest).toBe(expectedInterest);
+        });
+
+        it('should calculate interest correctly with rate changes', () => {
+            // 2% rate for first half of month
+            bankAccountService.addInterestRule('20230601', 'RULE01', 2.0);
+            // 3% rate for second half of month
+            bankAccountService.addInterestRule('20230615', 'RULE02', 3.0);
+
+            bankAccountService.processTransaction('20230601', 'AC001', 'D', 1000.00);
+
+            const interest = bankAccountService.calculateInterest('AC001', 2023, 6, 0);
+            // First 14 days: 1000 * (2% / 365) * 14
+            // Last 16 days: 1000 * (3% / 365) * 16
+            const expectedInterest = Math.round(((1000 * 0.02 / 365 * 14) + (1000 * 0.03 / 365 * 16)) * 100) / 100;
+            expect(interest).toBe(expectedInterest);
+        });
+
+        it('should calculate interest correctly with balance changes and rate changes', () => {
+            // 2% rate for first half of month
+            bankAccountService.addInterestRule('20230601', 'RULE01', 2.0);
+            // 3% rate for second half of month
+            bankAccountService.addInterestRule('20230615', 'RULE02', 3.0);
+
+            bankAccountService.processTransaction('20230601', 'AC001', 'D', 1000.00);
+            bankAccountService.processTransaction('20230615', 'AC001', 'D', 500.00);
+
+            const interest = bankAccountService.calculateInterest('AC001', 2023, 6, 0);
+            // First 14 days: 1000 * (2% / 365) * 14
+            // Last 16 days: 1500 * (3% / 365) * 16
+            const expectedInterest = Math.round(((1000 * 0.02 / 365 * 14) + (1500 * 0.03 / 365 * 16)) * 100) / 100;
+            expect(interest).toBe(expectedInterest);
+        });
+
+        it('should handle zero balance correctly', () => {
+            bankAccountService.addInterestRule('20230601', 'RULE01', 2.0);
+            bankAccountService.processTransaction('20230601', 'AC001', 'D', 1000.00);
+            bankAccountService.processTransaction('20230602', 'AC001', 'W', 1000.00);
+
+            const interest = bankAccountService.calculateInterest('AC001', 2023, 6, 0);
+            // First day: 1000 * (2% / 365) * 1
+            // Remaining days: 0 * (2% / 365) * 29
+            const expectedInterest = Math.round((1000 * 0.02 / 365) * 100) / 100;
+            expect(interest).toBe(expectedInterest);
+        });
+
+        it('should throw error for non-existent account', () => {
+            expect(() => {
+                bankAccountService.calculateInterest('NONEXISTENT', 2023, 6, 0);
+            }).toThrow('Account not found');
         });
     });
 }); 

@@ -8,6 +8,7 @@
     "start": "node dist/index.js",
     "debug": "node --inspect-brk dist/index.js",
     "test": "jest",
+    "test:coverage": "jest --coverage",
     "test:watch": "jest --watch",
     "lint": "eslint . --ext .ts"
   },
@@ -15,7 +16,11 @@
     "type": "git",
     "url": "git+https://github.com/thatz98/maltemsg-bank-account-app.git"
   },
-  "keywords": ["banking", "typescript", "cli"],
+  "keywords": [
+    "banking",
+    "typescript",
+    "cli"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
